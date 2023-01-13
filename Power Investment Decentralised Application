@@ -1,0 +1,65 @@
+pragma solidity ^0.8.0;
+
+contract PowerInvestment {
+    address payable owner;
+    mapping(address => uint) public investments;
+    mapping(address => bool) public kycVerified;
+    mapping(address => uint) public referralCommissions;
+
+    struct Plan {
+        uint cost;
+        uint apy;
+    }
+
+    Plan[] public plans;
+
+    constructor() public {
+        owner = msg.sender;
+        plans.push(Plan({cost: 20, apy: 2.3}));
+        plans.push(Plan({cost: 101, apy: 4.5}));
+        plans.push(Plan({cost: 501, apy: 6.2}));
+        plans.push(Plan({cost: 1001, apy: 8.1}));
+        plans.push(Plan({cost: 5001, apy: 10.0}));
+    }
+
+    function buy(uint _planIndex) public payable {
+        require(msg.sender.balance >= plans[_planIndex].cost, "Insufficient funds");
+        require(msg.sender.transfer(plans[_planIndex].cost), "Transfer failed");
+        investments[msg.sender] = _planIndex;
+    }
+
+    function payElectricityFee() public payable {
+        require(msg.value == 5 ether, "Incorrect amount");
+        require(msg.sender.transfer(5 ether), "Transfer failed");
+    }
+
+    function verifyKYC() public {
+        require(msg.sender == owner, "Only owner can verify KYC");
+        kycVerified[msg.sender] = true;
+    }
+
+    function withdraw() public {
+        require(kycVerified[msg.sender], "KYC not verified");
+        uint planIndex = investments[msg.sender];
+        require(planIndex != 0, "No investment found");
+        uint investment = plans[planIndex].cost;
+        uint apy = plans[planIndex].apy;
+        uint interest = (investment * apy) / 100;
+        require(msg.sender.transfer(investment + interest), "Transfer failed");
+    }
+
+    function invite(address _referral) public {
+        require(kycVerified[msg.sender], "KYC not verified");
+        uint referralInvestment = investments[_referral];
+        require(referralInvestment != 0, "Referral has not made an investment");
+        referralCommissions[msg.sender] += (referralInvestment * 5) / 100;
+    }
+
+    function collectReferralCommission() public {
+        require(kycVerified[msg.sender], "KYC not verified");
+        uint commission = referralCommissions[msg.sender];
+        require(commission != 0, "No commission to collect");
+        require(msg.sender.transfer(commission), "Transfer failed");
+        referralCommissions[msg.sender] = 0;
+    }
+}
